@@ -514,18 +514,17 @@ class GameManager {
         this.player.immunityAvailable = false;
         this.player.lastImmunityUse = performance.now();
         
+        // Play activation sound (if we had one)
+        // this.playSound('immunity-activate');
+        
         // Update visual appearance
         this.updatePlayerPosition();
         
-        // Update UI status
+        // Update UI status - this will now update both the text and card UI
         UIManager.updateImmunityStatus('active');
         
-        // Schedule the immunity to expire
-        setTimeout(() => {
-            this.player.immune = false;
-            this.updatePlayerPosition();
-            UIManager.updateImmunityStatus('cooldown');
-        }, GAME_CONFIG.GAME_SETTINGS.IMMUNITY_DURATION);
+        // No need for setTimeout here since the UI and game manager both
+        // track the immunity time and will update when it expires in gameLoop
     }
 }
 

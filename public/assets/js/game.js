@@ -64,7 +64,7 @@ class GameManager {
         // Create player
         this.player = {
             element: document.createElement('div'),
-            x: Math.floor(GAME_CONFIG.BOARD_SIZE / 2),
+            x: Math.floor(GAME_CONFIG.BOARD_SIZE * 0.75),
             y: GAME_CONFIG.BOARD_SIZE - 1,
             size: GAME_CONFIG.PLAYER.SIZE
         };
@@ -76,7 +76,7 @@ class GameManager {
         // Create fox enemy
         this.fox = {
             element: document.createElement('div'),
-            x: Math.floor(GAME_CONFIG.BOARD_SIZE / 2),
+            x: Math.floor(GAME_CONFIG.BOARD_SIZE * 0.25),
             y: 0,
             size: GAME_CONFIG.FOX.SIZE,
             lastShootTime: 0,
@@ -101,6 +101,9 @@ class GameManager {
         // Update the UI
         UIManager.updateScore(this.score);
         UIManager.updateTime(this.time);
+        
+        // Add a 3-second grace period before the fox starts shooting
+        this.fox.lastShootTime = performance.now() + 3000; 
         
         // Set up event listeners
         document.addEventListener('keydown', this.handleKeyDown);
@@ -229,11 +232,16 @@ class GameManager {
     
     // Check for collisions between player and orbs
     checkCollisions() {
+        // Use a smaller collision area for the player (70% of actual size for more forgiving gameplay)
+        const collisionReduction = 0.3; // 30% smaller hitbox
+        const adjustedSize = this.player.size * (1 - collisionReduction);
+        const offset = (this.player.size - adjustedSize) / 2;
+        
         const playerRect = {
-            left: this.player.x * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE - this.player.size) / 2,
-            top: this.player.y * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE - this.player.size) / 2,
-            right: this.player.x * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE + this.player.size) / 2,
-            bottom: this.player.y * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE + this.player.size) / 2
+            left: this.player.x * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE - adjustedSize) / 2,
+            top: this.player.y * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE - adjustedSize) / 2,
+            right: this.player.x * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE + adjustedSize) / 2,
+            bottom: this.player.y * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE + adjustedSize) / 2
         };
         
         // Check each orb for collision with player

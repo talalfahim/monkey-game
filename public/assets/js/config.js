@@ -10,7 +10,7 @@ const GAME_CONFIG = {
     
     // Game entities
     PLAYER: {
-        SPEED: 1, // Moves 1 tile at a time
+        SPEED: 1.5, // Moves 1.5 tiles at a time - increased for better dodging
         SIZE: 40, // Player size in pixels
         COLOR: '#3498db' // Blue
     },
@@ -18,8 +18,8 @@ const GAME_CONFIG = {
     FOX: {
         SIZE: 50, // Fox size in pixels
         COLOR: '#e74c3c', // Red
-        SHOOT_INTERVAL: [800, 1500], // Random interval between shots (ms)
-        MAX_ORBS_PER_SECOND: 3
+        SHOOT_INTERVAL: [1500, 2500], // Increased interval between shots (ms)
+        MAX_ORBS_PER_SECOND: 2 // Reduced from 3 to 2
     },
     
     ORB: {

@@ -154,22 +154,28 @@ class GameManager {
     foxShootOrb() {
         const boardElement = document.getElementById('game-board');
         
+        // Calculate direction vector from fox to player
+        const directionX = this.player.x - this.fox.x;
+        const directionY = this.player.y - this.fox.y;
+        
         // Create a new orb
         const orb = {
             element: document.createElement('div'),
             x: this.fox.x,
             y: this.fox.y,
             size: GAME_CONFIG.ORB.SIZE,
-            directionX: Math.random() * 2 - 1, // Random direction between -1 and 1
-            directionY: 0.5 + Math.random() * 0.5, // Always move downward (0.5 to 1)
+            directionX: directionX,
+            directionY: directionY,
             speed: GAME_CONFIG.ORB.SPEED,
             createdAt: performance.now()
         };
         
-        // Normalize direction vector
+        // Normalize direction vector to ensure consistent speed
         const length = Math.sqrt(orb.directionX * orb.directionX + orb.directionY * orb.directionY);
-        orb.directionX /= length;
-        orb.directionY /= length;
+        if (length > 0) { // Avoid division by zero
+            orb.directionX /= length;
+            orb.directionY /= length;
+        }
         
         orb.element.classList.add('orb');
         boardElement.appendChild(orb.element);

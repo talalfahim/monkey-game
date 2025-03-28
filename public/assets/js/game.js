@@ -130,6 +130,16 @@ class GameManager {
         const deltaTime = now - this.lastTick;
         this.lastTick = now;
         
+        // Move fox every 3 seconds
+        if (!this.fox.lastMoveTime) {
+            this.fox.lastMoveTime = now;
+        }
+        
+        if (now - this.fox.lastMoveTime > 3000) {
+            this.moveFox();
+            this.fox.lastMoveTime = now;
+        }
+        
         // Fox shooting logic
         if (now - this.fox.lastShootTime > this.fox.shootInterval) {
             this.foxShootOrb();
@@ -153,13 +163,22 @@ class GameManager {
         this.checkCollisions();
     }
     
+    // Move the fox enemy
+    moveFox() {
+        // Fox stays at the top of the board but moves left and right
+        const newX = Math.floor(Math.random() * GAME_CONFIG.BOARD_SIZE);
+        
+        this.fox.x = newX;
+        this.updateFoxPosition();
+    }
+    
     // Fox shoots an orb
     foxShootOrb() {
         const boardElement = document.getElementById('game-board');
         
         // Calculate direction vector from fox to player
-        const directionX = this.player.x - this.fox.x;
-        const directionY = this.player.y - this.fox.y;
+        let directionX = this.player.x - this.fox.x;
+        let directionY = this.player.y - this.fox.y;
         
         // Create a new orb
         const orb = {
@@ -174,10 +193,22 @@ class GameManager {
         };
         
         // Normalize direction vector to ensure consistent speed
-        const length = Math.sqrt(orb.directionX * orb.directionX + orb.directionY * orb.directionY);
+        const length = Math.sqrt(directionX * directionX + directionY * directionY);
         if (length > 0) { // Avoid division by zero
-            orb.directionX /= length;
-            orb.directionY /= length;
+            orb.directionX = directionX / length;
+            orb.directionY = directionY / length;
+            
+            // Add slight variation to make it not perfectly accurate (more fun)
+            const accuracy = 0.9; // 90% accuracy
+            orb.directionX = orb.directionX * accuracy + (Math.random() * 0.2 - 0.1);
+            orb.directionY = orb.directionY * accuracy + (Math.random() * 0.2 - 0.1);
+            
+            // Re-normalize after adding variation
+            const newLength = Math.sqrt(orb.directionX * orb.directionX + orb.directionY * orb.directionY);
+            if (newLength > 0) {
+                orb.directionX /= newLength;
+                orb.directionY /= newLength;
+            }
         }
         
         orb.element.classList.add('orb');

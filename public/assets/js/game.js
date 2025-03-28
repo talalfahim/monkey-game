@@ -246,14 +246,27 @@ class GameManager {
         
         // Update remaining orbs positions
         this.orbs.forEach(orb => {
-            orb.x += orb.directionX * orb.speed * deltaSeconds;
-            orb.y += orb.directionY * orb.speed * deltaSeconds;
+            // Calculate new position
+            const newX = orb.x + orb.directionX * orb.speed * deltaSeconds;
+            const newY = orb.y + orb.directionY * orb.speed * deltaSeconds;
             
-            // Remove orbs that go out of bounds
-            if (orb.x < 0 || orb.x >= GAME_CONFIG.BOARD_SIZE || 
-                orb.y < 0 || orb.y >= GAME_CONFIG.BOARD_SIZE) {
-                boardElement.removeChild(orb.element);
-                return false;
+            // Check for boundary collisions and bounce
+            if (newX < 0 || newX >= GAME_CONFIG.BOARD_SIZE) {
+                // Bounce off horizontal walls
+                orb.directionX *= -1;
+                // Ensure the orb doesn't get stuck in the wall
+                orb.x += orb.directionX * 0.1;
+            } else {
+                orb.x = newX;
+            }
+            
+            if (newY < 0 || newY >= GAME_CONFIG.BOARD_SIZE) {
+                // Bounce off vertical walls
+                orb.directionY *= -1;
+                // Ensure the orb doesn't get stuck in the wall
+                orb.y += orb.directionY * 0.1;
+            } else {
+                orb.y = newY;
             }
             
             this.updateOrbPosition(orb);

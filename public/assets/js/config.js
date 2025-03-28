@@ -24,9 +24,9 @@ const GAME_CONFIG = {
     
     ORB: {
         SIZE: 20, // Orb size in pixels
-        SPEED: 40, // Pixels per second - much slower for better gameplay
+        SPEED: 20, // Pixels per second - much slower for better gameplay
         COLOR: '#f39c12', // Orange
-        LIFE_SPAN: 15000 // How long orbs live (ms) - increased to account for slower speed
+        LIFE_SPAN: 3000 // How long orbs live (ms) - reduced to 3 seconds
     },
     
     // Game settings

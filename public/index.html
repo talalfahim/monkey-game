@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monkey vs Fox - Strategic Board Game</title>
+    <link rel="stylesheet" href="./assets/css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="menu-screen" class="screen">
+            <h1>Monkey vs Fox</h1>
+            <div class="menu-options">
+                <button id="create-game-btn" class="menu-btn">Create Game</button>
+                <button id="join-game-btn" class="menu-btn">Join Game</button>
+            </div>
+        </div>
+        
+        <div id="create-game-screen" class="screen hidden">
+            <h2>Create a New Game</h2>
+            <div id="room-code-display">
+                <p>Your room code: <span id="room-code">Generating...</span></p>
+                <p>Share this code with your opponent to join the game</p>
+            </div>
+            <div class="menu-options">
+                <button id="start-game-btn" class="menu-btn" disabled>Start Game</button>
+                <button id="back-to-menu-btn" class="menu-btn">Back to Menu</button>
+            </div>
+        </div>
+        
+        <div id="join-game-screen" class="screen hidden">
+            <h2>Join a Game</h2>
+            <div class="input-group">
+                <label for="room-code-input">Enter Room Code:</label>
+                <input type="text" id="room-code-input" maxlength="6">
+                <button id="join-btn" class="menu-btn">Join</button>
+            </div>
+            <button id="join-back-btn" class="menu-btn">Back to Menu</button>
+        </div>
+        
+        <div id="game-screen" class="screen hidden">
+            <div id="game-info">
+                <div id="player-turn"></div>
+                <div id="abilities-container">
+                    <h3>Abilities</h3>
+                    <div class="abilities-list">
+                        <button class="ability-btn" data-ability="jump">Double Jump</button>
+                        <button class="ability-btn" data-ability="swap">Swap Pieces</button>
+                        <button class="ability-btn" data-ability="block">Block Tile</button>
+                    </div>
+                </div>
+            </div>
+            <div id="game-board"></div>
+            <button id="leave-game-btn" class="menu-btn">Leave Game</button>
+        </div>
+    </div>
+
+    <!-- Load game scripts -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
+    <script src="./assets/js/config.js"></script>
+    <script src="./assets/js/ui.js"></script>
+    <script src="./assets/js/game.js"></script>
+    <script src="./assets/js/main.js"></script>
+</body>
+</html> 

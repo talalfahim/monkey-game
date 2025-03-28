@@ -1,100 +1,100 @@
 /**
  * UI Manager
- * Handles UI interactions and screen transitions
+ * Handles all UI updates and interactions
  */
-const UIManager = {
-    // DOM elements
-    elements: {
-        screens: {
-            menu: document.getElementById('menu-screen'),
-            game: document.getElementById('game-screen'),
-            gameOver: document.getElementById('game-over-screen')
-        },
-        buttons: {
-            startGame: document.getElementById('start-game-btn'),
-            leaveGame: document.getElementById('leave-game-btn'),
-            playAgain: document.getElementById('play-again-btn'),
-            backToMenu: document.getElementById('back-to-menu-btn')
-        },
-        score: {
-            current: document.getElementById('score-value'),
-            final: document.getElementById('final-score-value')
-        },
-        time: {
-            current: document.getElementById('time-value'),
-            final: document.getElementById('final-time-value')
-        }
-    },
-    
-    // Initialize the UI
-    init() {
-        // Set up event listeners
-        this.setupEventListeners();
+class UI {
+    constructor() {
+        // Screens
+        this.menuScreen = document.getElementById('menu-screen');
+        this.gameScreen = document.getElementById('game-screen');
+        this.gameOverScreen = document.getElementById('game-over-screen');
         
-        // Show the initial screen
-        this.showScreen('menu');
-    },
+        // Buttons
+        this.startButton = document.getElementById('start-game');
+        this.quitButton = document.getElementById('quit-game');
+        this.playAgainButton = document.getElementById('play-again');
+        this.backToMenuButton = document.getElementById('back-to-menu');
+        
+        // Game info elements
+        this.scoreElement = document.getElementById('score');
+        this.timeElement = document.getElementById('time');
+        this.finalScoreElement = document.getElementById('final-score');
+        this.immunityStatusElement = document.getElementById('immunity-status');
+        
+        // Bind events
+        this.bindEvents();
+    }
     
-    // Set up event listeners for buttons
-    setupEventListeners() {
-        // Start game button
-        this.elements.buttons.startGame.addEventListener('click', () => {
+    // Initialize event listeners
+    bindEvents() {
+        this.startButton.addEventListener('click', () => {
             this.showScreen('game');
             gameManager.startGame();
         });
         
-        // Leave game button
-        this.elements.buttons.leaveGame.addEventListener('click', () => {
+        this.quitButton.addEventListener('click', () => {
             gameManager.quitGame();
             this.showScreen('menu');
         });
         
-        // Play again button
-        this.elements.buttons.playAgain.addEventListener('click', () => {
+        this.playAgainButton.addEventListener('click', () => {
             this.showScreen('game');
             gameManager.startGame();
         });
         
-        // Back to menu button
-        this.elements.buttons.backToMenu.addEventListener('click', () => {
+        this.backToMenuButton.addEventListener('click', () => {
             this.showScreen('menu');
         });
-    },
+    }
     
-    // Show a specific screen
+    // Show a specific screen and hide others
     showScreen(screenName) {
-        // Hide all screens
-        Object.values(this.elements.screens).forEach(screen => {
-            screen.classList.add('hidden');
-        });
+        this.menuScreen.classList.add('hidden');
+        this.gameScreen.classList.add('hidden');
+        this.gameOverScreen.classList.add('hidden');
         
-        // Show the requested screen
         switch (screenName) {
             case 'menu':
-                this.elements.screens.menu.classList.remove('hidden');
+                this.menuScreen.classList.remove('hidden');
                 break;
             case 'game':
-                this.elements.screens.game.classList.remove('hidden');
+                this.gameScreen.classList.remove('hidden');
                 break;
             case 'game-over':
-                this.elements.screens.gameOver.classList.remove('hidden');
+                this.gameOverScreen.classList.remove('hidden');
                 break;
         }
-    },
-    
-    // Update the current score display
-    updateScore(score) {
-        this.elements.score.current.textContent = score;
-    },
-    
-    // Update the current time display
-    updateTime(time) {
-        this.elements.time.current.textContent = time;
-    },
-    
-    // Set the final score and time on game over
-    setFinalScore(score, time) {
-        this.elements.score.final.textContent = score;
-        this.elements.time.final.textContent = time;
     }
-}; 
+    
+    // Update the score display
+    updateScore(score) {
+        this.scoreElement.textContent = `Score: ${score}`;
+    }
+    
+    // Update the time display
+    updateTime(time) {
+        this.timeElement.textContent = `Time: ${time}s`;
+    }
+    
+    // Update the immunity status display
+    updateImmunityStatus(status) {
+        if (status === 'active') {
+            this.immunityStatusElement.textContent = 'Immunity: Active';
+            this.immunityStatusElement.style.color = '#2ecc71';
+        } else if (status === 'cooldown') {
+            this.immunityStatusElement.textContent = 'Immunity: Cooling Down';
+            this.immunityStatusElement.style.color = '#e74c3c';
+        } else {
+            this.immunityStatusElement.textContent = 'Immunity: Ready (Press P)';
+            this.immunityStatusElement.style.color = '#3498db';
+        }
+    }
+    
+    // Set the final score on game over
+    setFinalScore(score, time) {
+        this.finalScoreElement.textContent = `Final Score: ${score} | Survived: ${time} seconds`;
+    }
+}
+
+// Create UI manager instance
+const UIManager = new UI(); 

@@ -167,10 +167,28 @@ h2 {
     font-weight: bold;
 }
 
-#score, #time {
+#score, #time, #immunity-status {
     padding: 10px 20px;
     background-color: rgba(52, 73, 94, 0.8);
     border-radius: 5px;
+}
+
+#immunity-status {
+    transition: color 0.3s ease;
+}
+
+/* Immunity visual effects */
+.player.immune {
+    animation: pulse-immunity 1s infinite alternate;
+}
+
+@keyframes pulse-immunity {
+    0% {
+        box-shadow: 0 0 15px 5px rgba(46, 204, 113, 0.6);
+    }
+    100% {
+        box-shadow: 0 0 25px 10px rgba(46, 204, 113, 0.8);
+    }
 }
 
 /* Game Over Screen */

@@ -22,6 +22,7 @@ class GameManager {
         this.handleKeyDown = this.handleKeyDown.bind(this);
         this.gameLoop = this.gameLoop.bind(this);
         this.foxShootOrb = this.foxShootOrb.bind(this);
+        this.activateImmunity = this.activateImmunity.bind(this);
     }
     
     // Initialize the game board
@@ -66,7 +67,10 @@ class GameManager {
             element: document.createElement('div'),
             x: Math.floor(GAME_CONFIG.BOARD_SIZE * 0.75),
             y: GAME_CONFIG.BOARD_SIZE - 1,
-            size: GAME_CONFIG.PLAYER.SIZE
+            size: GAME_CONFIG.PLAYER.SIZE,
+            immune: false,
+            immunityAvailable: true,
+            lastImmunityUse: 0
         };
         
         this.player.element.classList.add('player');
@@ -98,9 +102,15 @@ class GameManager {
         // Initialize the board
         this.initializeBoard();
         
+        // Reset player immunity
+        this.player.immune = false;
+        this.player.immunityAvailable = true;
+        this.player.lastImmunityUse = 0;
+        
         // Update the UI
         UIManager.updateScore(this.score);
         UIManager.updateTime(this.time);
+        UIManager.updateImmunityStatus('ready');
         
         // Add a 3-second grace period before the fox starts shooting
         this.fox.lastShootTime = performance.now() + 3000; 
@@ -129,6 +139,9 @@ class GameManager {
         const now = performance.now();
         const deltaTime = now - this.lastTick;
         this.lastTick = now;
+        
+        // Update immunity status
+        this.updateImmunityStatus(now);
         
         // Move fox every 3 seconds
         if (!this.fox.lastMoveTime) {
@@ -289,7 +302,8 @@ class GameManager {
         };
         
         // Check each orb for collision with player
-        for (const orb of this.orbs) {
+        for (let i = 0; i < this.orbs.length; i++) {
+            const orb = this.orbs[i];
             const orbRect = {
                 left: orb.x * GAME_CONFIG.TILE_SIZE,
                 top: orb.y * GAME_CONFIG.TILE_SIZE,
@@ -302,8 +316,30 @@ class GameManager {
                 playerRect.right > orbRect.left && 
                 playerRect.top < orbRect.bottom && 
                 playerRect.bottom > orbRect.top) {
-                this.gameOver();
-                break;
+                
+                // If player is immune, consume the immunity and destroy the orb
+                if (this.player.immune) {
+                    this.player.immune = false;
+                    
+                    // Remove the orb that hit the player
+                    const boardElement = document.getElementById('game-board');
+                    boardElement.removeChild(orb.element);
+                    this.orbs.splice(i, 1);
+                    
+                    // Update player appearance
+                    this.updatePlayerPosition();
+                    
+                    // Add a small score bonus for blocking a projectile
+                    this.score += 25;
+                    UIManager.updateScore(this.score);
+                    
+                    // Break since we've handled this collision
+                    break;
+                } else {
+                    // Player is not immune, game over
+                    this.gameOver();
+                    break;
+                }
             }
         }
     }
@@ -327,6 +363,9 @@ class GameManager {
                 break;
             case GAME_CONFIG.KEYS.PAUSE:
                 this.togglePause();
+                break;
+            case GAME_CONFIG.KEYS.IMMUNITY:
+                this.activateImmunity();
                 break;
         }
     }
@@ -357,6 +396,22 @@ class GameManager {
         this.player.element.style.top = `${top}px`;
         this.player.element.style.width = `${this.player.size}px`;
         this.player.element.style.height = `${this.player.size}px`;
+        
+        // Show visual feedback for immunity
+        if (this.player.immune) {
+            this.player.element.classList.add('immune');
+            this.player.element.style.boxShadow = '0 0 15px 5px rgba(46, 204, 113, 0.8)';
+            this.player.element.style.border = '2px solid #2ecc71';
+        } else {
+            this.player.element.classList.remove('immune');
+            if (!this.player.immunityAvailable) {
+                this.player.element.style.boxShadow = '0 0 10px rgba(52, 152, 219, 0.7)';
+                this.player.element.style.border = 'none';
+            } else {
+                this.player.element.style.boxShadow = '0 0 10px rgba(52, 152, 219, 0.7)';
+                this.player.element.style.border = '2px dashed #2ecc71';
+            }
+        }
     }
     
     // Update fox position on the board
@@ -431,6 +486,46 @@ class GameManager {
         // Reset game state
         this.orbs = [];
         this.state = GAME_CONFIG.GAME_STATES.MENU;
+    }
+    
+    // Update immunity status
+    updateImmunityStatus(now) {
+        // Check if immunity has expired
+        if (this.player.immune && now - this.player.lastImmunityUse > GAME_CONFIG.GAME_SETTINGS.IMMUNITY_DURATION) {
+            this.player.immune = false;
+            this.updatePlayerPosition();
+            UIManager.updateImmunityStatus('cooldown');
+        }
+        
+        // Check if immunity cooldown has expired
+        if (!this.player.immunityAvailable && 
+            now - this.player.lastImmunityUse > GAME_CONFIG.GAME_SETTINGS.IMMUNITY_COOLDOWN) {
+            this.player.immunityAvailable = true;
+            this.updatePlayerPosition();
+            UIManager.updateImmunityStatus('ready');
+        }
+    }
+    
+    // Activate immunity ability
+    activateImmunity() {
+        if (!this.player.immunityAvailable || this.player.immune) return;
+        
+        this.player.immune = true;
+        this.player.immunityAvailable = false;
+        this.player.lastImmunityUse = performance.now();
+        
+        // Update visual appearance
+        this.updatePlayerPosition();
+        
+        // Update UI status
+        UIManager.updateImmunityStatus('active');
+        
+        // Schedule the immunity to expire
+        setTimeout(() => {
+            this.player.immune = false;
+            this.updatePlayerPosition();
+            UIManager.updateImmunityStatus('cooldown');
+        }, GAME_CONFIG.GAME_SETTINGS.IMMUNITY_DURATION);
     }
 }
 

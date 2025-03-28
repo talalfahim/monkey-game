@@ -1,275 +1,380 @@
 /**
  * Game Manager
- * Handles game logic and communication with the server
+ * Handles the core game logic
  */
-
 class GameManager {
     constructor() {
-        // Initialize socket connection
-        this.socket = io();
-        
         // Game state
-        this.gameState = {
-            roomCode: null,
-            playerType: null,
-            isMyTurn: false,
-            selectedPiece: null,
-            boardState: [],
-            validMoves: [],
-            gameStatus: GAME_CONFIG.GAME_STATES.WAITING,
-            abilities: {
-                jump: { cooldown: 0, name: 'Double Jump' },
-                swap: { cooldown: 0, name: 'Swap' },
-                block: { cooldown: 0, name: 'Block' }
-            }
-        };
+        this.state = GAME_CONFIG.GAME_STATES.MENU;
+        this.score = 0;
+        this.time = 0;
+        this.gameLoopInterval = null;
+        this.lastTick = 0;
+        this.isPaused = false;
         
-        // Set up socket event listeners
-        this.setupSocketEvents();
+        // Game entities
+        this.player = null;
+        this.fox = null;
+        this.orbs = [];
+        this.tiles = [];
+        
+        // Bind methods to this instance
+        this.handleKeyDown = this.handleKeyDown.bind(this);
+        this.gameLoop = this.gameLoop.bind(this);
+        this.foxShootOrb = this.foxShootOrb.bind(this);
     }
     
-    setupSocketEvents() {
-        // Connection events
-        this.socket.on(GAME_CONFIG.EVENTS.CONNECT, () => {
-            console.log('Connected to server');
-        });
+    // Initialize the game board
+    initializeBoard() {
+        const boardElement = document.getElementById('game-board');
         
-        this.socket.on(GAME_CONFIG.EVENTS.DISCONNECT, () => {
-            console.log('Disconnected from server');
-        });
+        // Clear the board
+        boardElement.innerHTML = '';
         
-        // Room events
-        this.socket.on(GAME_CONFIG.EVENTS.ROOM_CREATED, (data) => {
-            console.log('Room created:', data);
-            this.gameState.roomCode = data.roomCode;
-            this.gameState.playerType = GAME_CONFIG.PLAYER_TYPES.MONKEY; // First player is Monkey
-            uiManager.setRoomCode(data.roomCode);
-        });
+        // Set board dimensions
+        boardElement.style.gridTemplateColumns = `repeat(${GAME_CONFIG.BOARD_SIZE}, 1fr)`;
+        boardElement.style.gridTemplateRows = `repeat(${GAME_CONFIG.BOARD_SIZE}, 1fr)`;
         
-        this.socket.on(GAME_CONFIG.EVENTS.PLAYER_JOINED, () => {
-            console.log('Player joined the room');
-            uiManager.enableStartButton();
-            this.gameState.gameStatus = GAME_CONFIG.GAME_STATES.READY;
-        });
-        
-        this.socket.on(GAME_CONFIG.EVENTS.ROOM_JOINED, (data) => {
-            console.log('Joined room:', data);
-            this.gameState.roomCode = data.roomCode;
-            this.gameState.playerType = GAME_CONFIG.PLAYER_TYPES.FOX; // Second player is Fox
-            uiManager.showScreen('game'); // Go directly to game screen
-        });
-        
-        this.socket.on(GAME_CONFIG.EVENTS.ROOM_FULL, () => {
-            console.log('Room is full');
-            alert('This room is already full. Please try another room code.');
-        });
-        
-        // Game events
-        this.socket.on(GAME_CONFIG.EVENTS.GAME_START, (data) => {
-            console.log('Game started:', data);
-            this.gameState.gameStatus = GAME_CONFIG.GAME_STATES.IN_PROGRESS;
-            this.gameState.boardState = data.boardState;
-            this.gameState.isMyTurn = data.currentPlayer === this.gameState.playerType;
-            
-            // Update UI
-            uiManager.updatePlayerTurn(data.currentPlayer);
-            uiManager.createBoardUI(this.gameState.boardState, this.gameState.playerType);
-        });
-        
-        this.socket.on(GAME_CONFIG.EVENTS.GAME_UPDATE, (data) => {
-            console.log('Game updated:', data);
-            this.gameState.boardState = data.boardState;
-            this.gameState.isMyTurn = data.currentPlayer === this.gameState.playerType;
-            this.gameState.selectedPiece = null;
-            this.gameState.validMoves = [];
-            
-            // Update abilities cooldowns
-            Object.keys(this.gameState.abilities).forEach(ability => {
-                if (data.abilities && data.abilities[this.gameState.playerType] && 
-                    data.abilities[this.gameState.playerType][ability]) {
-                    this.gameState.abilities[ability].cooldown = 
-                        data.abilities[this.gameState.playerType][ability].cooldown;
-                }
-            });
-            
-            // Update UI
-            uiManager.updatePlayerTurn(data.currentPlayer);
-            uiManager.updateAbilityCooldowns(this.gameState.abilities);
-            uiManager.createBoardUI(this.gameState.boardState, this.gameState.playerType);
-        });
-        
-        this.socket.on(GAME_CONFIG.EVENTS.GAME_OVER, (data) => {
-            console.log('Game over:', data);
-            this.gameState.gameStatus = GAME_CONFIG.GAME_STATES.FINISHED;
-            uiManager.showGameResult(data.winner);
-        });
-        
-        // Error events
-        this.socket.on(GAME_CONFIG.EVENTS.ERROR, (data) => {
-            console.error('Error:', data);
-            alert(`Error: ${data.message}`);
-        });
-    }
-    
-    // Room methods
-    createRoom() {
-        this.socket.emit(GAME_CONFIG.EVENTS.CREATE_ROOM);
-    }
-    
-    joinRoom(roomCode) {
-        this.socket.emit(GAME_CONFIG.EVENTS.JOIN_ROOM, { roomCode });
-    }
-    
-    startGame() {
-        this.socket.emit(GAME_CONFIG.EVENTS.GAME_START, { roomCode: this.gameState.roomCode });
-    }
-    
-    leaveGame() {
-        // Reset game state
-        this.gameState = {
-            roomCode: null,
-            playerType: null,
-            isMyTurn: false,
-            selectedPiece: null,
-            boardState: [],
-            validMoves: [],
-            gameStatus: GAME_CONFIG.GAME_STATES.WAITING,
-            abilities: {
-                jump: { cooldown: 0, name: 'Double Jump' },
-                swap: { cooldown: 0, name: 'Swap' },
-                block: { cooldown: 0, name: 'Block' }
-            }
-        };
-        
-        // Disconnect and reconnect to reset socket state
-        this.socket.disconnect();
-        this.socket.connect();
-    }
-    
-    // Game methods
-    selectPiece(pieceId) {
-        if (!this.gameState.isMyTurn) {
-            return; // Not your turn
-        }
-        
-        // Find the piece in the board state
-        const piece = this.gameState.boardState.find(p => p.id === pieceId);
-        if (!piece || piece.type !== this.gameState.playerType) {
-            return; // Not your piece
-        }
-        
-        this.gameState.selectedPiece = piece;
-        
-        // Calculate valid moves for this piece
-        this.gameState.validMoves = this.calculateValidMoves(piece);
-        
-        // Update UI to show valid moves
-        uiManager.createBoardUI(
-            this.gameState.boardState,
-            this.gameState.playerType,
-            this.gameState.validMoves
-        );
-    }
-    
-    movePiece(targetX, targetY) {
-        if (!this.gameState.isMyTurn || !this.gameState.selectedPiece) {
-            return; // Not your turn or no piece selected
-        }
-        
-        // Check if the move is valid
-        const isValidMove = this.gameState.validMoves.some(
-            move => move[0] === targetX && move[1] === targetY
-        );
-        
-        if (!isValidMove) {
-            return; // Invalid move
-        }
-        
-        // Emit move piece event
-        this.socket.emit(GAME_CONFIG.EVENTS.MOVE_PIECE, {
-            roomCode: this.gameState.roomCode,
-            pieceId: this.gameState.selectedPiece.id,
-            toX: targetX,
-            toY: targetY
-        });
-        
-        // Reset selection
-        this.gameState.selectedPiece = null;
-        this.gameState.validMoves = [];
-    }
-    
-    useAbility(abilityName) {
-        if (!this.gameState.isMyTurn) {
-            return; // Not your turn
-        }
-        
-        // Check if ability is on cooldown
-        if (this.gameState.abilities[abilityName].cooldown > 0) {
-            return; // Ability on cooldown
-        }
-        
-        // Different handling based on ability type
-        switch (abilityName) {
-            case 'jump':
-                // Will be handled on the server side
-                this.socket.emit(GAME_CONFIG.EVENTS.USE_ABILITY, {
-                    roomCode: this.gameState.roomCode,
-                    ability: abilityName
+        // Create tiles
+        this.tiles = [];
+        for (let y = 0; y < GAME_CONFIG.BOARD_SIZE; y++) {
+            for (let x = 0; x < GAME_CONFIG.BOARD_SIZE; x++) {
+                const tile = document.createElement('div');
+                tile.classList.add('board-tile');
+                
+                // Checker pattern
+                const isLight = (x + y) % 2 === 0;
+                tile.classList.add(isLight ? 'tile-light' : 'tile-dark');
+                
+                // Set data attributes for position
+                tile.setAttribute('data-x', x);
+                tile.setAttribute('data-y', y);
+                
+                boardElement.appendChild(tile);
+                
+                // Store tile reference
+                this.tiles.push({
+                    element: tile,
+                    x: x,
+                    y: y
                 });
-                break;
-                
-            case 'swap':
-                // Need to select two pieces to swap
-                alert('Select two of your pieces to swap them.');
-                // This would need additional UI to select two pieces
-                // Simplified for now
-                break;
-                
-            case 'block':
-                // Need to select a tile to block
-                alert('Select a tile to block for 2 turns.');
-                // This would need additional UI to select a tile
-                // Simplified for now
-                break;
-        }
-    }
-    
-    // Helper methods
-    calculateValidMoves(piece) {
-        const validMoves = [];
-        
-        // Get piece's current position
-        const { x, y, type } = piece;
-        
-        // Direction to move (Monkey moves down, Fox moves up)
-        const moveDirection = type === GAME_CONFIG.PLAYER_TYPES.MONKEY ? 1 : -1;
-        
-        // Check diagonal moves
-        for (const direction of GAME_CONFIG.DIAGONAL_DIRECTIONS) {
-            const newX = x + direction[0];
-            const newY = y + (direction[1] * moveDirection);
-            
-            // Check if the position is within the board
-            if (this.isValidPosition(newX, newY)) {
-                // Check if the position is empty
-                const isOccupied = this.gameState.boardState.some(
-                    p => p.x === newX && p.y === newY
-                );
-                
-                if (!isOccupied) {
-                    validMoves.push([newX, newY]);
-                }
             }
         }
         
-        return validMoves;
+        // Create player
+        this.player = {
+            element: document.createElement('div'),
+            x: Math.floor(GAME_CONFIG.BOARD_SIZE / 2),
+            y: GAME_CONFIG.BOARD_SIZE - 1,
+            size: GAME_CONFIG.PLAYER.SIZE
+        };
+        
+        this.player.element.classList.add('player');
+        boardElement.appendChild(this.player.element);
+        this.updatePlayerPosition();
+        
+        // Create fox enemy
+        this.fox = {
+            element: document.createElement('div'),
+            x: Math.floor(GAME_CONFIG.BOARD_SIZE / 2),
+            y: 0,
+            size: GAME_CONFIG.FOX.SIZE,
+            lastShootTime: 0,
+            shootInterval: GAME_CONFIG.FOX.SHOOT_INTERVAL[0]
+        };
+        
+        this.fox.element.classList.add('fox-enemy');
+        boardElement.appendChild(this.fox.element);
+        this.updateFoxPosition();
     }
     
-    isValidPosition(x, y) {
-        return x >= 0 && x < GAME_CONFIG.BOARD_SIZE && 
-               y >= 0 && y < GAME_CONFIG.BOARD_SIZE;
+    // Start the game
+    startGame() {
+        // Reset game state
+        this.score = 0;
+        this.time = 0;
+        this.orbs = [];
+        
+        // Initialize the board
+        this.initializeBoard();
+        
+        // Update the UI
+        UIManager.updateScore(this.score);
+        UIManager.updateTime(this.time);
+        
+        // Set up event listeners
+        document.addEventListener('keydown', this.handleKeyDown);
+        
+        // Start the game loop
+        this.lastTick = performance.now();
+        this.state = GAME_CONFIG.GAME_STATES.PLAYING;
+        this.gameLoopInterval = setInterval(this.gameLoop, 1000 / GAME_CONFIG.GAME_SETTINGS.TICK_RATE);
+        
+        // Start timer for incremental scoring
+        this.scoreTimer = setInterval(() => {
+            this.score += 10;
+            this.time += 1;
+            UIManager.updateScore(this.score);
+            UIManager.updateTime(this.time);
+        }, 1000);
+    }
+    
+    // Game loop
+    gameLoop() {
+        if (this.isPaused) return;
+        
+        const now = performance.now();
+        const deltaTime = now - this.lastTick;
+        this.lastTick = now;
+        
+        // Fox shooting logic
+        if (now - this.fox.lastShootTime > this.fox.shootInterval) {
+            this.foxShootOrb();
+            
+            // Set next shooting interval
+            const minInterval = GAME_CONFIG.FOX.SHOOT_INTERVAL[0];
+            const maxInterval = GAME_CONFIG.FOX.SHOOT_INTERVAL[1];
+            this.fox.shootInterval = Math.random() * (maxInterval - minInterval) + minInterval;
+            
+            // Decrease interval as time progresses (increase difficulty)
+            const timeFactor = Math.min(this.time / 60, 1); // Cap at 1 minute of gameplay
+            this.fox.shootInterval *= (1 - timeFactor * 0.5); // Reduce by up to 50%
+            
+            this.fox.lastShootTime = now;
+        }
+        
+        // Update orbs
+        this.updateOrbs(deltaTime);
+        
+        // Check collisions
+        this.checkCollisions();
+    }
+    
+    // Fox shoots an orb
+    foxShootOrb() {
+        const boardElement = document.getElementById('game-board');
+        
+        // Create a new orb
+        const orb = {
+            element: document.createElement('div'),
+            x: this.fox.x,
+            y: this.fox.y,
+            size: GAME_CONFIG.ORB.SIZE,
+            directionX: Math.random() * 2 - 1, // Random direction between -1 and 1
+            directionY: 0.5 + Math.random() * 0.5, // Always move downward (0.5 to 1)
+            speed: GAME_CONFIG.ORB.SPEED,
+            createdAt: performance.now()
+        };
+        
+        // Normalize direction vector
+        const length = Math.sqrt(orb.directionX * orb.directionX + orb.directionY * orb.directionY);
+        orb.directionX /= length;
+        orb.directionY /= length;
+        
+        orb.element.classList.add('orb');
+        boardElement.appendChild(orb.element);
+        
+        // Set initial position
+        this.updateOrbPosition(orb);
+        
+        // Add to orbs array
+        this.orbs.push(orb);
+        
+        // Limit the maximum number of orbs
+        if (this.orbs.length > GAME_CONFIG.FOX.MAX_ORBS_PER_SECOND * 3) {
+            const oldestOrb = this.orbs.shift();
+            boardElement.removeChild(oldestOrb.element);
+        }
+    }
+    
+    // Update all orbs
+    updateOrbs(deltaTime) {
+        const boardElement = document.getElementById('game-board');
+        
+        // Convert deltaTime to seconds
+        const deltaSeconds = deltaTime / 1000;
+        
+        // Remove old orbs
+        const now = performance.now();
+        this.orbs = this.orbs.filter(orb => {
+            if (now - orb.createdAt > GAME_CONFIG.ORB.LIFE_SPAN) {
+                boardElement.removeChild(orb.element);
+                return false;
+            }
+            return true;
+        });
+        
+        // Update remaining orbs positions
+        this.orbs.forEach(orb => {
+            orb.x += orb.directionX * orb.speed * deltaSeconds;
+            orb.y += orb.directionY * orb.speed * deltaSeconds;
+            
+            // Remove orbs that go out of bounds
+            if (orb.x < 0 || orb.x >= GAME_CONFIG.BOARD_SIZE || 
+                orb.y < 0 || orb.y >= GAME_CONFIG.BOARD_SIZE) {
+                boardElement.removeChild(orb.element);
+                return false;
+            }
+            
+            this.updateOrbPosition(orb);
+            return true;
+        });
+    }
+    
+    // Check for collisions between player and orbs
+    checkCollisions() {
+        const playerRect = {
+            left: this.player.x * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE - this.player.size) / 2,
+            top: this.player.y * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE - this.player.size) / 2,
+            right: this.player.x * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE + this.player.size) / 2,
+            bottom: this.player.y * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE + this.player.size) / 2
+        };
+        
+        // Check each orb for collision with player
+        for (const orb of this.orbs) {
+            const orbRect = {
+                left: orb.x * GAME_CONFIG.TILE_SIZE,
+                top: orb.y * GAME_CONFIG.TILE_SIZE,
+                right: orb.x * GAME_CONFIG.TILE_SIZE + orb.size,
+                bottom: orb.y * GAME_CONFIG.TILE_SIZE + orb.size
+            };
+            
+            // Simple rectangle collision check
+            if (playerRect.left < orbRect.right && 
+                playerRect.right > orbRect.left && 
+                playerRect.top < orbRect.bottom && 
+                playerRect.bottom > orbRect.top) {
+                this.gameOver();
+                break;
+            }
+        }
+    }
+    
+    // Handle keyboard input
+    handleKeyDown(event) {
+        if (this.state !== GAME_CONFIG.GAME_STATES.PLAYING) return;
+        
+        switch (event.key) {
+            case GAME_CONFIG.KEYS.UP:
+                this.movePlayer(GAME_CONFIG.DIRECTIONS.UP);
+                break;
+            case GAME_CONFIG.KEYS.DOWN:
+                this.movePlayer(GAME_CONFIG.DIRECTIONS.DOWN);
+                break;
+            case GAME_CONFIG.KEYS.LEFT:
+                this.movePlayer(GAME_CONFIG.DIRECTIONS.LEFT);
+                break;
+            case GAME_CONFIG.KEYS.RIGHT:
+                this.movePlayer(GAME_CONFIG.DIRECTIONS.RIGHT);
+                break;
+            case GAME_CONFIG.KEYS.PAUSE:
+                this.togglePause();
+                break;
+        }
+    }
+    
+    // Move the player
+    movePlayer(direction) {
+        const newX = this.player.x + direction.x;
+        const newY = this.player.y + direction.y;
+        
+        // Check if move is within bounds
+        if (newX >= 0 && newX < GAME_CONFIG.BOARD_SIZE && 
+            newY >= 0 && newY < GAME_CONFIG.BOARD_SIZE) {
+            this.player.x = newX;
+            this.player.y = newY;
+            this.updatePlayerPosition();
+        }
+    }
+    
+    // Update player position on the board
+    updatePlayerPosition() {
+        const tileSize = GAME_CONFIG.TILE_SIZE;
+        
+        // Center the player in the tile
+        const left = this.player.x * tileSize + (tileSize - this.player.size) / 2;
+        const top = this.player.y * tileSize + (tileSize - this.player.size) / 2;
+        
+        this.player.element.style.left = `${left}px`;
+        this.player.element.style.top = `${top}px`;
+        this.player.element.style.width = `${this.player.size}px`;
+        this.player.element.style.height = `${this.player.size}px`;
+    }
+    
+    // Update fox position on the board
+    updateFoxPosition() {
+        const tileSize = GAME_CONFIG.TILE_SIZE;
+        
+        // Center the fox in the tile
+        const left = this.fox.x * tileSize + (tileSize - this.fox.size) / 2;
+        const top = this.fox.y * tileSize + (tileSize - this.fox.size) / 2;
+        
+        this.fox.element.style.left = `${left}px`;
+        this.fox.element.style.top = `${top}px`;
+        this.fox.element.style.width = `${this.fox.size}px`;
+        this.fox.element.style.height = `${this.fox.size}px`;
+    }
+    
+    // Update orb position
+    updateOrbPosition(orb) {
+        const tileSize = GAME_CONFIG.TILE_SIZE;
+        
+        // Position the orb relative to its coordinates
+        const left = orb.x * tileSize;
+        const top = orb.y * tileSize;
+        
+        orb.element.style.left = `${left}px`;
+        orb.element.style.top = `${top}px`;
+        orb.element.style.width = `${orb.size}px`;
+        orb.element.style.height = `${orb.size}px`;
+    }
+    
+    // Toggle game pause
+    togglePause() {
+        this.isPaused = !this.isPaused;
+    }
+    
+    // End the game
+    gameOver() {
+        this.state = GAME_CONFIG.GAME_STATES.GAME_OVER;
+        
+        // Clear intervals
+        clearInterval(this.gameLoopInterval);
+        clearInterval(this.scoreTimer);
+        
+        // Remove event listeners
+        document.removeEventListener('keydown', this.handleKeyDown);
+        
+        // Update final score
+        UIManager.setFinalScore(this.score, this.time);
+        
+        // Show game over screen
+        UIManager.showScreen('game-over');
+    }
+    
+    // Clean up when leaving the game
+    quitGame() {
+        // Clear intervals
+        if (this.gameLoopInterval) {
+            clearInterval(this.gameLoopInterval);
+        }
+        
+        if (this.scoreTimer) {
+            clearInterval(this.scoreTimer);
+        }
+        
+        // Remove event listeners
+        document.removeEventListener('keydown', this.handleKeyDown);
+        
+        // Clear the board
+        const boardElement = document.getElementById('game-board');
+        boardElement.innerHTML = '';
+        
+        // Reset game state
+        this.orbs = [];
+        this.state = GAME_CONFIG.GAME_STATES.MENU;
     }
 }
 
-// Create game manager instance
+// Create the game manager instance
 const gameManager = new GameManager(); 

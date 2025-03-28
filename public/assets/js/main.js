@@ -4,95 +4,113 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Game initialized');
+    console.log('Fox Hunt game initialized');
     
-    // Create placeholder monkey and fox images for the game
-    createPlaceholderImages();
+    // Initialize the UI
+    UIManager.init();
+    
+    // Create a favicon dynamically
+    createFavicon();
+    
+    // Add keyboard instructions
+    addKeyboardInstructions();
 });
 
 /**
- * Creates placeholder images for the game pieces
- * This is a temporary solution until actual images are added
+ * Creates a favicon for the game
  */
-function createPlaceholderImages() {
-    // Create a canvas for the monkey image
-    const monkeyCanvas = document.createElement('canvas');
-    monkeyCanvas.width = 100;
-    monkeyCanvas.height = 100;
-    const monkeyCtx = monkeyCanvas.getContext('2d');
+function createFavicon() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
     
-    // Draw a monkey placeholder
-    monkeyCtx.fillStyle = '#FFD700'; // Gold color
-    monkeyCtx.beginPath();
-    monkeyCtx.arc(50, 50, 45, 0, Math.PI * 2);
-    monkeyCtx.fill();
+    // Draw a fox icon (simplified)
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath();
+    ctx.arc(32, 32, 30, 0, Math.PI * 2);
+    ctx.fill();
     
-    // Add monkey face
-    monkeyCtx.fillStyle = '#8B4513'; // Brown color
+    // Add fox details
+    ctx.fillStyle = '#fff';
     // Eyes
-    monkeyCtx.beginPath();
-    monkeyCtx.arc(35, 40, 7, 0, Math.PI * 2);
-    monkeyCtx.fill();
-    monkeyCtx.beginPath();
-    monkeyCtx.arc(65, 40, 7, 0, Math.PI * 2);
-    monkeyCtx.fill();
-    // Mouth
-    monkeyCtx.beginPath();
-    monkeyCtx.arc(50, 65, 15, 0, Math.PI);
-    monkeyCtx.fill();
-    
-    // Convert to image and add to the assets folder
-    const monkeyImgURL = monkeyCanvas.toDataURL('image/png');
-    
-    // Create a canvas for the fox image
-    const foxCanvas = document.createElement('canvas');
-    foxCanvas.width = 100;
-    foxCanvas.height = 100;
-    const foxCtx = foxCanvas.getContext('2d');
-    
-    // Draw a fox placeholder
-    foxCtx.fillStyle = '#8B0000'; // Dark red color
-    foxCtx.beginPath();
-    foxCtx.arc(50, 50, 45, 0, Math.PI * 2);
-    foxCtx.fill();
-    
-    // Add fox face
-    foxCtx.fillStyle = '#FFF'; // White color
-    // Eyes
-    foxCtx.beginPath();
-    foxCtx.arc(35, 40, 7, 0, Math.PI * 2);
-    foxCtx.fill();
-    foxCtx.beginPath();
-    foxCtx.arc(65, 40, 7, 0, Math.PI * 2);
-    foxCtx.fill();
+    ctx.beginPath();
+    ctx.arc(22, 26, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(42, 26, 5, 0, Math.PI * 2);
+    ctx.fill();
     // Snout
-    foxCtx.beginPath();
-    foxCtx.moveTo(35, 60);
-    foxCtx.lineTo(50, 75);
-    foxCtx.lineTo(65, 60);
-    foxCtx.closePath();
-    foxCtx.fill();
+    ctx.beginPath();
+    ctx.moveTo(22, 40);
+    ctx.lineTo(32, 48);
+    ctx.lineTo(42, 40);
+    ctx.closePath();
+    ctx.fill();
     
-    // Convert to image and add to the assets folder
-    const foxImgURL = foxCanvas.toDataURL('image/png');
-    
-    // Create and save the images
-    saveImage(monkeyImgURL, 'monkey');
-    saveImage(foxImgURL, 'fox');
+    // Add the favicon to the document
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.type = 'image/png';
+    link.href = canvas.toDataURL('image/png');
+    document.head.appendChild(link);
 }
 
 /**
- * Helper function to create and inject CSS for the generated images
+ * Adds keyboard instructions to the game description
  */
-function saveImage(dataURL, name) {
-    // In a real application, we would save these files to the server
-    // For this demo, we'll inject them as CSS
+function addKeyboardInstructions() {
+    const gameDescription = document.querySelector('.game-description');
+    
+    // Create instructions element
+    const instructions = document.createElement('div');
+    instructions.className = 'keyboard-instructions';
+    instructions.innerHTML = `
+        <p><strong>Controls:</strong></p>
+        <div class="key-info">
+            <div class="key">↑</div><span>Move Up</span>
+        </div>
+        <div class="key-info">
+            <div class="key">↓</div><span>Move Down</span>
+        </div>
+        <div class="key-info">
+            <div class="key">←</div><span>Move Left</span>
+        </div>
+        <div class="key-info">
+            <div class="key">→</div><span>Move Right</span>
+        </div>
+        <div class="key-info">
+            <div class="key">ESC</div><span>Pause Game</span>
+        </div>
+    `;
+    
+    // Add CSS for key instructions
     const style = document.createElement('style');
     style.textContent = `
-        .piece-${name} {
-            background-image: url('${dataURL}') !important;
-            background-size: cover;
+        .keyboard-instructions {
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .key-info {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            justify-content: center;
+        }
+        
+        .key {
+            background-color: #34495e;
+            color: #ecf0f1;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-right: 10px;
+            min-width: 30px;
+            text-align: center;
+            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
         }
     `;
+    
     document.head.appendChild(style);
+    gameDescription.appendChild(instructions);
 } 

@@ -23,6 +23,12 @@ class GameManager {
         this.gameLoop = this.gameLoop.bind(this);
         this.foxShootOrb = this.foxShootOrb.bind(this);
         this.activateImmunity = this.activateImmunity.bind(this);
+        
+        // Add homing shot properties
+        this.nextHomingShotTime = GAME_CONFIG.GAME_SETTINGS.INITIAL_HOMING_SHOT_DELAY;
+        this.isChargingHomingShot = false;
+        this.homingChargeStartTime = 0;
+        this.homingShots = [];
     }
     
     // Initialize the game board
@@ -130,6 +136,12 @@ class GameManager {
             UIManager.updateScore(this.score);
             UIManager.updateTime(this.time);
         }, 1000);
+        
+        // Reset homing shot timing
+        this.nextHomingShotTime = GAME_CONFIG.GAME_SETTINGS.INITIAL_HOMING_SHOT_DELAY;
+        this.isChargingHomingShot = false;
+        this.homingChargeStartTime = 0;
+        this.homingShots = [];
     }
     
     // Game loop
@@ -171,6 +183,26 @@ class GameManager {
         
         // Update orbs
         this.updateOrbs(deltaTime);
+        
+        // Check if it's time for a homing shot
+        if (now >= this.nextHomingShotTime && !this.isChargingHomingShot) {
+            this.startChargingHomingShot();
+        }
+        
+        // Update charging animation if active
+        if (this.isChargingHomingShot) {
+            const chargeTime = now - this.homingChargeStartTime;
+            if (chargeTime >= GAME_CONFIG.GAME_SETTINGS.HOMING_SHOT_CHARGE_TIME) {
+                this.fireHomingShot();
+            } else {
+                // Update charging visual effect
+                const chargeProgress = chargeTime / GAME_CONFIG.GAME_SETTINGS.HOMING_SHOT_CHARGE_TIME;
+                this.updateChargingEffect(chargeProgress);
+            }
+        }
+        
+        // Update homing shots
+        this.updateHomingShots(deltaTime);
         
         // Check collisions
         this.checkCollisions();
@@ -289,56 +321,65 @@ class GameManager {
     
     // Check for collisions between player and orbs
     checkCollisions() {
-        // Use a smaller collision area for the player (70% of actual size for more forgiving gameplay)
-        const collisionReduction = 0.3; // 30% smaller hitbox
-        const adjustedSize = this.player.size * (1 - collisionReduction);
-        const offset = (this.player.size - adjustedSize) / 2;
-        
-        const playerRect = {
-            left: this.player.x * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE - adjustedSize) / 2,
-            top: this.player.y * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE - adjustedSize) / 2,
-            right: this.player.x * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE + adjustedSize) / 2,
-            bottom: this.player.y * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE + adjustedSize) / 2
-        };
-        
-        // Check each orb for collision with player
-        for (let i = 0; i < this.orbs.length; i++) {
-            const orb = this.orbs[i];
-            const orbRect = {
-                left: orb.x * GAME_CONFIG.TILE_SIZE,
-                top: orb.y * GAME_CONFIG.TILE_SIZE,
-                right: orb.x * GAME_CONFIG.TILE_SIZE + orb.size,
-                bottom: orb.y * GAME_CONFIG.TILE_SIZE + orb.size
-            };
-            
-            // Simple rectangle collision check
-            if (playerRect.left < orbRect.right && 
-                playerRect.right > orbRect.left && 
-                playerRect.top < orbRect.bottom && 
-                playerRect.bottom > orbRect.top) {
+        if (!this.player.immune) {
+            // Check regular orb collisions
+            for (let i = 0; i < this.orbs.length; i++) {
+                const orb = this.orbs[i];
+                const orbRect = {
+                    left: orb.x * GAME_CONFIG.TILE_SIZE,
+                    top: orb.y * GAME_CONFIG.TILE_SIZE,
+                    right: orb.x * GAME_CONFIG.TILE_SIZE + orb.size,
+                    bottom: orb.y * GAME_CONFIG.TILE_SIZE + orb.size
+                };
                 
-                // If player is immune, consume the immunity and destroy the orb
-                if (this.player.immune) {
-                    this.player.immune = false;
+                // Use a smaller collision area for the player (70% of actual size for more forgiving gameplay)
+                const collisionReduction = 0.3; // 30% smaller hitbox
+                const adjustedSize = this.player.size * (1 - collisionReduction);
+                const offset = (this.player.size - adjustedSize) / 2;
+                
+                const playerRect = {
+                    left: this.player.x * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE - adjustedSize) / 2,
+                    top: this.player.y * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE - adjustedSize) / 2,
+                    right: this.player.x * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE + adjustedSize) / 2,
+                    bottom: this.player.y * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE + adjustedSize) / 2
+                };
+                
+                // Simple rectangle collision check
+                if (playerRect.left < orbRect.right && 
+                    playerRect.right > orbRect.left && 
+                    playerRect.top < orbRect.bottom && 
+                    playerRect.bottom > orbRect.top) {
                     
-                    // Remove the orb that hit the player
-                    const boardElement = document.getElementById('game-board');
-                    boardElement.removeChild(orb.element);
-                    this.orbs.splice(i, 1);
-                    
-                    // Update player appearance
-                    this.updatePlayerPosition();
-                    
-                    // Add a small score bonus for blocking a projectile
-                    this.score += 25;
-                    UIManager.updateScore(this.score);
-                    
-                    // Break since we've handled this collision
-                    break;
-                } else {
-                    // Player is not immune, game over
-                    this.gameOver();
-                    break;
+                    // If player is immune, consume the immunity and destroy the orb
+                    if (this.player.immune) {
+                        this.player.immune = false;
+                        
+                        // Remove the orb that hit the player
+                        boardElement.removeChild(orb.element);
+                        this.orbs.splice(i, 1);
+                        
+                        // Update player appearance
+                        this.updatePlayerPosition();
+                        
+                        // Add a small score bonus for blocking a projectile
+                        this.score += 25;
+                        UIManager.updateScore(this.score);
+                        
+                        // Break since we've handled this collision
+                        break;
+                    } else {
+                        // Player is not immune, game over
+                        this.gameOver();
+                        break;
+                    }
+                }
+            }
+            
+            // Check homing shot collisions
+            for (const shot of this.homingShots) {
+                if (this.checkCollision(this.player, shot)) {
+                    this.handlePlayerHit();
+                    return;
                 }
             }
         }
@@ -526,7 +567,152 @@ class GameManager {
         // No need for setTimeout here since the UI and game manager both
         // track the immunity time and will update when it expires in gameLoop
     }
+    
+    startChargingHomingShot() {
+        this.isChargingHomingShot = true;
+        this.homingChargeStartTime = performance.now();
+        
+        // Add visual indicator to fox
+        this.fox.style.boxShadow = GAME_CONFIG.ORB.HOMING_GLOW;
+        this.fox.style.transform = 'scale(1.1)';
+        
+        // Schedule next homing shot
+        this.nextHomingShotTime = performance.now() + GAME_CONFIG.GAME_SETTINGS.HOMING_SHOT_INTERVAL;
+    }
+    
+    updateChargingEffect(progress) {
+        // Update fox's visual charging effect
+        const glowIntensity = Math.floor(progress * 20);
+        const scaleValue = 1.1 + (progress * 0.1);
+        this.fox.style.boxShadow = `0 0 ${glowIntensity}px ${GAME_CONFIG.ORB.HOMING_COLOR}`;
+        this.fox.style.transform = `scale(${scaleValue})`;
+    }
+    
+    fireHomingShot() {
+        // Reset fox appearance
+        this.fox.style.boxShadow = '';
+        this.fox.style.transform = '';
+        this.isChargingHomingShot = false;
+        
+        // Create homing shot
+        const homingShot = document.createElement('div');
+        homingShot.className = 'orb homing-orb';
+        homingShot.style.width = `${GAME_CONFIG.ORB.HOMING_SIZE}px`;
+        homingShot.style.height = `${GAME_CONFIG.ORB.HOMING_SIZE}px`;
+        homingShot.style.backgroundColor = GAME_CONFIG.ORB.HOMING_COLOR;
+        homingShot.style.boxShadow = GAME_CONFIG.ORB.HOMING_GLOW;
+        
+        // Calculate initial direction towards player
+        const dx = this.player.x - this.fox.x;
+        const dy = this.player.y - this.fox.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        const homingShotData = {
+            element: homingShot,
+            x: this.fox.x,
+            y: this.fox.y,
+            directionX: dx / distance,
+            directionY: dy / distance,
+            createdAt: performance.now(),
+            speed: GAME_CONFIG.GAME_SETTINGS.HOMING_SHOT_SPEED
+        };
+        
+        this.updateOrbPosition(homingShotData);
+        this.homingShots.push(homingShotData);
+    }
+    
+    updateHomingShots(deltaTime) {
+        const trackingStrength = GAME_CONFIG.GAME_SETTINGS.HOMING_SHOT_TRACKING_STRENGTH;
+        
+        this.homingShots = this.homingShots.filter(shot => {
+            // Check if shot should be removed
+            if (performance.now() - shot.createdAt >= GAME_CONFIG.ORB.LIFE_SPAN) {
+                shot.element.remove();
+                return false;
+            }
+            
+            // Update direction to track player
+            const dx = this.player.x - shot.x;
+            const dy = this.player.y - shot.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Gradually adjust direction towards player
+            shot.directionX += (dx / distance - shot.directionX) * trackingStrength;
+            shot.directionY += (dy / distance - shot.directionY) * trackingStrength;
+            
+            // Normalize direction vector
+            const dirLength = Math.sqrt(shot.directionX * shot.directionX + shot.directionY * shot.directionY);
+            shot.directionX /= dirLength;
+            shot.directionY /= dirLength;
+            
+            // Update position
+            shot.x += shot.directionX * shot.speed * (deltaTime / 1000);
+            shot.y += shot.directionY * shot.speed * (deltaTime / 1000);
+            
+            // Update visual position
+            shot.element.style.left = `${shot.x}px`;
+            shot.element.style.top = `${shot.y}px`;
+            
+            return true;
+        });
+    }
+    
+    checkCollision(player, orb) {
+        // Use a smaller collision area for the player (70% of actual size for more forgiving gameplay)
+        const collisionReduction = 0.3; // 30% smaller hitbox
+        const adjustedSize = player.size * (1 - collisionReduction);
+        const offset = (player.size - adjustedSize) / 2;
+        
+        const playerRect = {
+            left: player.x * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE - adjustedSize) / 2,
+            top: player.y * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE - adjustedSize) / 2,
+            right: player.x * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE + adjustedSize) / 2,
+            bottom: player.y * GAME_CONFIG.TILE_SIZE + (GAME_CONFIG.TILE_SIZE + adjustedSize) / 2
+        };
+        
+        const orbRect = {
+            left: orb.x * GAME_CONFIG.TILE_SIZE,
+            top: orb.y * GAME_CONFIG.TILE_SIZE,
+            right: orb.x * GAME_CONFIG.TILE_SIZE + orb.size,
+            bottom: orb.y * GAME_CONFIG.TILE_SIZE + orb.size
+        };
+        
+        // Simple rectangle collision check
+        return playerRect.left < orbRect.right && 
+            playerRect.right > orbRect.left && 
+            playerRect.top < orbRect.bottom && 
+            playerRect.bottom > orbRect.top;
+    }
+    
+    handlePlayerHit() {
+        // Implement player hit handling logic
+        console.log('Player hit!');
+    }
 }
 
 // Create the game manager instance
-const gameManager = new GameManager(); 
+const gameManager = new GameManager();
+
+// Update CSS for homing orbs
+const style = document.createElement('style');
+style.textContent = `
+    .homing-orb {
+        position: absolute;
+        border-radius: 50%;
+        transition: box-shadow 0.3s ease;
+        z-index: 2;
+    }
+    
+    .homing-orb::after {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        border-radius: 50%;
+        background: radial-gradient(circle at center, rgba(155, 89, 182, 0.4) 0%, transparent 70%);
+        z-index: -1;
+    }
+`;
+document.head.appendChild(style); 

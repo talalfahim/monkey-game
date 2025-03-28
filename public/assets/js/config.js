@@ -23,10 +23,13 @@ const GAME_CONFIG = {
     },
     
     ORB: {
-        SIZE: 20, // Orb size in pixels
-        SPEED: 10, // Pixels per second - cut in half for slower gameplay
-        COLOR: '#f39c12', // Orange
-        LIFE_SPAN: 2000 // How long orbs live (ms) - reduced to 2 seconds
+        SIZE: 10, // Orb size in pixels
+        SPEED: 120, // Pixels per second - cut in half for slower gameplay
+        COLOR: '#e74c3c', // Orange
+        LIFE_SPAN: 5000, // How long orbs live (ms) - reduced to 2 seconds
+        HOMING_COLOR: '#9b59b6',         // Purple color for homing shots
+        HOMING_SIZE: 15,                 // Slightly larger than regular orbs
+        HOMING_GLOW: '0 0 20px #9b59b6' // Glowing effect for homing shots
     },
     
     // Game settings
@@ -35,7 +38,14 @@ const GAME_CONFIG = {
         DIFFICULTY_INCREASE_INTERVAL: 10, // Seconds between difficulty increases
         INITIAL_LIVES: 1,
         IMMUNITY_COOLDOWN: 10000, // 10 seconds cooldown for immunity ability
-        IMMUNITY_DURATION: 3000 // 3 seconds of immunity when activated
+        IMMUNITY_DURATION: 3000, // 3 seconds of immunity when activated
+        GRID_SIZE: 10,
+        CELL_SIZE: 50,
+        INITIAL_HOMING_SHOT_DELAY: 8000, // First homing shot appears at 8 seconds
+        HOMING_SHOT_INTERVAL: 17000,      // Then every 17 seconds
+        HOMING_SHOT_CHARGE_TIME: 1500,    // 1.5 seconds charging time
+        HOMING_SHOT_SPEED: 180,           // Slightly faster than regular orbs
+        HOMING_SHOT_TRACKING_STRENGTH: 0.15 // How strongly it tracks the player (0-1)
     },
     
     // Direction mappings for keyboard controls
